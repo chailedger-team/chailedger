@@ -24,10 +24,12 @@ def create_app(config_overrides=None):
 
     from app.farmers.routes import bp as farmers_bp
     from app.deliveries.routes import bp as deliveries_bp
+    from app.payments.routes import bp as payments_bp
     from app.notifications.routes import bp as notifications_bp
 
     app.register_blueprint(farmers_bp)
     app.register_blueprint(deliveries_bp)
+    app.register_blueprint(payments_bp)
     app.register_blueprint(notifications_bp)
 
     @app.get("/")
