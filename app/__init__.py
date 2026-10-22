@@ -23,9 +23,11 @@ def create_app(config_overrides=None):
     register_error_handlers(app)
 
     from app.farmers.routes import bp as farmers_bp
+    from app.deliveries.routes import bp as deliveries_bp
     from app.notifications.routes import bp as notifications_bp
 
     app.register_blueprint(farmers_bp)
+    app.register_blueprint(deliveries_bp)
     app.register_blueprint(notifications_bp)
 
     @app.get("/")
