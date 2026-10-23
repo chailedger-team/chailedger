@@ -258,7 +258,22 @@ In every module, `routes.py` handles the web requests and `service.py` holds the
 
 ## Links
 
-* [Project Board](link-to-github-projects)
+- [Project Board](https://github.com/orgs/chailedger-team/projects/1)
+- [GitHub Repository](https://github.com/chailedger-team/chailedger)
+
+## Branch Protection
+
+The `main` branch is protected to keep the project stable and make sure changes are reviewed before they are merged.
+
+- **Require a pull request before merging:** All changes must be submitted through a pull request instead of being pushed directly to `main`.
+- **Require one approving review:** At least one teammate must review and approve a pull request before it can be merged.
+- **Dismiss stale approvals:** If new commits are pushed after approval, the previous approval is dismissed so the updated changes can be reviewed.
+- **Require branches to be up to date:** Pull requests must include the latest changes from `main` before merging, reducing integration problems.
+- **Require conversation resolution:** Review comments and requested changes must be addressed before merging.
+- **Do not allow bypassing the rules:** The branch protection requirements apply consistently, preventing team members from skipping the review process.
+
+These rules support collaboration, code quality and a clear history of reviewed changes.
+
 
 ## License
 
