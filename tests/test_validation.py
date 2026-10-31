@@ -53,5 +53,3 @@ def test_timestamp_validation():
     assert timestamp("2026-10-22T08:30") == "2026-10-22T08:30:00"
     with pytest.raises(ValidationError):
         timestamp("yesterday")
-
-import os
