@@ -15,8 +15,7 @@ changes, and ensure that contributions are reviewed before they are merged.
 3. **Dismiss stale approvals:** New changes invalidate previous approvals
    so reviewers can reassess the updated code.
 
-4. **Require status checks to pass:** Automated checks must pass before
-   merging. This will be enabled when the CI workflow is configured.
+4. **Require status checks to pass:** The CI workflow must pass before a pull request can be merged. Configure the required status checks in GitHub's branch protection settings using the exact check names reported by the workflow.
 
 5. **Require branches to be up to date:** Pull requests must include the
    latest changes from `main` before merging.

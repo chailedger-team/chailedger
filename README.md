@@ -1,4 +1,5 @@
 # ChaiLedger
+[![ChaiLedger CI](https://github.com/chailedger-team/chailedger/actions/workflows/ci.yml/badge.svg)](https://github.com/chailedger-team/chailedger/actions/workflows/ci.yml)
 
 A transparent weighing and payment record for smallholder tea farmers in Kenya.
 
@@ -279,6 +280,9 @@ All settings are read from environment variables. You can see them in `.env.exam
 
 ```
 chailedger/
+|-- .github/
+|   `-- workflows/
+|       `-- ci.yml             Runs linting, tests, Docker checks and image publishing
 |-- app/
 |   |-- __init__.py          Creates the app and connects all the modules
 |   |-- config.py            Reads settings from environment variables
@@ -330,6 +334,7 @@ The `main` branch is protected to keep the project stable and make sure changes 
 - **Require branches to be up to date:** Pull requests must include the latest changes from `main` before merging, reducing integration problems.
 - **Require conversation resolution:** Review comments and requested changes must be addressed before merging.
 - **Do not allow bypassing the rules:** The branch protection requirements apply consistently, preventing team members from skipping the review process.
+- **Require status checks to pass:** The CI workflow must pass its required checks before a pull request can be merged. The required checks should match the names reported by GitHub Actions.
 
 These rules support collaboration, code quality and a clear history of reviewed changes.
 
