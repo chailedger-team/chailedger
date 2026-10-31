@@ -47,18 +47,66 @@ We split the code into four modules: farmers, deliveries, payments and notificat
 * **Frontend:** None yet. The API returns JSON, which you can try with a browser, curl or Postman
 * **Database:** SQLite, which saves to a local file and needs no setup
 * **Testing:** pytest
+* **Linting:** flake8
+* **Containers:** Docker and Docker Compose. Inside the container, gunicorn serves the app instead of Flask's development server
+* **CI:** GitHub Actions, which lints, tests and builds the Docker image on every push and pull request
 * **Other:** python-dotenv, for reading settings from a `.env` file
 
 ## Getting Started
 
-### Prerequisites
+There are two ways to run ChaiLedger. The easiest is Docker Compose. You only need Docker installed, and one command starts everything. The Python setup is still here for when you want to change the code and run the tests yourself.
+
+### Running with Docker Compose
+
+#### What you need
+
+* Docker Desktop on Windows or macOS, or Docker Engine with the Compose plugin on Linux. Check with `docker compose version`. You need version 2.24 or newer.
+* Git
+
+On Windows, open Docker Desktop and wait until it says "Engine running" before you type any Docker command. I learned this the hard way. If you skip it, you get a long error about a pipe that cannot be found.
+
+#### Start the app
+
+```bash
+git clone https://github.com/chailedger-team/chailedger.git
+cd chailedger
+docker compose up -d --build
+```
+
+The first build takes a minute or two. After that, Docker reuses what it already built, so it is much quicker. Open http://localhost:5000/health in your browser. If you see `{"status":"ok"}`, everything is working, and all the curl examples in [Usage](#usage) work exactly the same.
+
+You do not need a `.env` file. Compose already has defaults that work, and if you do create one (see step 4 under Installation), it picks up your values.
+
+#### Everyday commands
+
+| What you want to do | Command |
+|---|---|
+| Start the app | `docker compose up -d --build` |
+| Load the sample centres and farmers | `docker compose --profile seed run --rm seed` |
+| Check that the app is healthy | `docker compose ps` and look for `healthy` |
+| Watch the logs | `docker compose logs -f app` |
+| Stop the app and keep your data | `docker compose down` |
+| Stop the app and delete all data | `docker compose down -v` |
+| Use another port, for example 8080 | Add `APP_PORT=8080` to your `.env` file, then start the app |
+
+#### How it works
+
+**Dockerfile.** The image is built in two stages. The first stage installs the Python packages. The second stage starts again from a fresh `python:3.12-slim` image and only copies in those packages and our code, so nothing extra comes along. The app runs as its own user called `chailedger`, not as root, so even if something went wrong inside the app, it could not take over the container. Docker also calls `/health` every 30 seconds and marks the container as unhealthy if the app stops answering.
+
+**docker-compose.yml.** This runs the app on its own private network and restarts it if it crashes. ChaiLedger uses SQLite, which keeps everything in one file, so there is no separate database container. Instead, that file lives in a volume called `chailedger-data`. A volume is storage that Docker keeps outside the container, so the farmers and weighings you record are still there after you stop, restart or rebuild the app. The `seed` service only runs when you ask for it, and it waits until the app is healthy before adding the sample data.
+
+**.dockerignore.** This keeps things like `.env`, local databases, the tests and the Git history out of the image. Builds are faster, and no secrets end up inside it.
+
+### Running with Python
+
+#### Prerequisites
 
 * Python 3.10 or newer (check with `python --version`)
 * pip
 * Git
 * curl or Postman, if you want to try the API from the command line
 
-### Installation
+#### Installation
 
 1. Clone the repository
 
@@ -88,8 +136,10 @@ We split the code into four modules: farmers, deliveries, payments and notificat
 3. Install the dependencies
 
    ```bash
-   pip install -r requirements.txt
+   pip install -r requirements-dev.txt
    ```
+
+   `requirements.txt` has only what the app needs to run, and it is what the Docker image installs. `requirements-dev.txt` adds pytest and flake8 on top, so you can test and lint on your machine.
 
 4. Create your local settings file
 
@@ -123,13 +173,14 @@ We split the code into four modules: farmers, deliveries, payments and notificat
 
    Open http://127.0.0.1:5000 in your browser to see all the endpoints, or http://127.0.0.1:5000/health to check that the app is running. Press `Ctrl + C` to stop it.
 
-### Running the tests
+### Running the tests and the linter
 
 ```bash
+flake8
 pytest
 ```
 
-The tests create their own temporary database, so they never touch your local data.
+flake8 checks the code style and prints nothing when everything is fine. The tests create their own temporary database, so they never touch your local data. These are the same checks our CI pipeline runs on GitHub, so if both pass on your machine, they should pass there too.
 
 ## Usage
 
@@ -220,6 +271,7 @@ All settings are read from environment variables. You can see them in `.env.exam
 | `CHAILEDGER_DATABASE` | `instance/chailedger.db` | Where the SQLite file is saved |
 | `CHAILEDGER_RATE_PER_KG` | `25` | Example pay rate per kilogram, in KES |
 | `CHAILEDGER_MAX_KG_PER_DELIVERY` | `150` | The largest weight allowed for one weighing |
+| `HOST` | `127.0.0.1` | The address the app listens on. Docker sets this to `0.0.0.0` inside the container |
 | `PORT` | `5000` | The port the app runs on |
 | `FLASK_DEBUG` | `0` | Set to `1` to reload the app automatically while coding |
 
@@ -247,9 +299,15 @@ chailedger/
 |       |-- routes.py
 |       `-- service.py
 |-- tests/                   Unit and API tests
+|-- docs/                    Notes on our team process
+|-- .dockerignore            Files kept out of the Docker image
 |-- .env.example             Example settings, with no secrets
+|-- .flake8                  Linting rules
+|-- docker-compose.yml       Starts the app and its data volume with one command
+|-- Dockerfile               Builds the ChaiLedger image
 |-- pytest.ini
-|-- requirements.txt
+|-- requirements.txt         Packages the app needs to run
+|-- requirements-dev.txt     Extra packages for testing and linting
 |-- run.py                   Starts the app
 `-- README.md
 ```
