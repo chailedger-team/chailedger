@@ -318,6 +318,7 @@ In every module, `routes.py` handles the web requests and `service.py` holds the
 
 - [Project Board](https://github.com/orgs/chailedger-team/projects/1)
 - [GitHub Repository](https://github.com/chailedger-team/chailedger)
+- [Team Task Spreadsheet](https://docs.google.com/spreadsheets/d/1OJ5yaELHKvDsbao7nS0HjPpASoF2m0Fbyl95jkZHtyI/edit?gid=0#gid=0)
 
 ## Branch Protection
 
