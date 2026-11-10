@@ -1,0 +1,5 @@
+resource_group_name = "chailedger-rg"
+location            = "southafricanorth"
+vm_size             = "Standard_B1s"
+admin_username      = "chailedgeradmin"
+environment         = "dev"
