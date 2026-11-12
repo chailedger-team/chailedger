@@ -27,3 +27,8 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
+
+variable "ssh_public_key" {
+  description = "SSH public key for VM access"
+  type        = string
+}
