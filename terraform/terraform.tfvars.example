@@ -1,0 +1,7 @@
+resource_group_name = "chailedger-rg"
+location            = "southafricanorth"
+vm_size             = "Standard_B1s"
+admin_username      = "chailedgeradmin"
+environment         = "dev"
+ssh_public_key = "ssh-rsa AAAA...your-public-key-here"
+allowed_ssh_cidr = "YOUR_IP/32"
