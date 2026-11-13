@@ -30,7 +30,6 @@ The latest reported scan found 47 HIGH and 0 CRITICAL vulnerabilities. These fin
 |---|---|---|
 | SSH (port 22) open to all sources by default | HIGH | Added the configurable allowed_ssh_cidr variable so SSH access can be restricted to a trusted IP range. The current default remains 0.0.0.0/0 and should be changed for deployment. |
 | App port (5000) open to all sources | MEDIUM | Documented. A production deployment should restrict access or place the application behind a load balancer or gateway. |
-| No disk encryption specified on VM | HIGH | Documented. Production infrastructure should use appropriately configured managed-disk encryption. |
 
 ### pip-audit
 
