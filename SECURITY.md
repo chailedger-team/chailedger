@@ -1,39 +1,40 @@
 # Security
 
-This document covers the security scanning that runs as part of our CI pipeline and any findings that came up.
+This document records the security scans in our GitHub Actions CI pipeline and the findings identified during development.
 
 ## Scanning tools
 
-We added two security scans to the GitHub Actions workflow. Both run automatically on every pull request.
+All three scans run automatically through the CI workflow on pull requests targeting main.
 
-### Trivy (container image scanning)
+### Trivy - container image scanning
 
-Trivy scans the built Docker image for known vulnerabilities in OS packages and application dependencies. We configured it to flag CRITICAL and HIGH severity issues only so the output stays focused on things that actually matter.
+Trivy scans the built Docker image for known vulnerabilities in OS packages and application dependencies. It reports HIGH and CRITICAL severity findings.
 
-### tfsec (Infrastructure as Code scanning)
+### tfsec - Infrastructure as Code scanning
 
-tfsec analyses the Terraform configuration files for potential security misconfigurations. Things like overly permissive firewall rules, missing encryption settings, or hardcoded credentials. It runs with soft_fail enabled so it reports issues without blocking the pipeline.
+tfsec analyses Terraform configuration for security misconfigurations, including network exposure and encryption settings. It runs with soft_fail enabled so findings are reported without blocking the pipeline.
+
+### pip-audit - Python dependency scanning
+
+pip-audit checks the Python dependencies listed in requirements-dev.txt against known vulnerability databases.
 
 ## Findings
 
 ### Trivy
 
-No critical or high severity vulnerabilities were found in the container image. The base image is `python:3.12-slim` which has a smaller attack surface compared to the full image. We also use a multi-stage build so build-time dependencies do not end up in the final image.
+The latest reported scan found 47 HIGH and 0 CRITICAL vulnerabilities. These findings are documented for review and require ongoing monitoring and remediation. The project uses a multi-stage Docker build and the python:3.12-slim base image to reduce the final image size and attack surface; these measures do not mean all reported vulnerabilities are resolved.
 
 ### tfsec
 
-tfsec flagged the following:
-
 | Finding | Severity | How we handled it |
 |---|---|---|
-| Finding | Severity | How we handled it |
-|---|---|---|
-| SSH (port 22) open to all sources | HIGH | Fixed. SSH access is now restricted through a configurable CIDR variable (`allowed_ssh_cidr`). In production this would be set to a specific IP range. The default is left open for development convenience but can be locked down in tfvars. |
-| App port (5000) open to all sources | MEDIUM | Acknowledged. A production setup would sit behind a load balancer or gateway instead of exposing the app port directly. |
-| No disk encryption specified on VM | HIGH | The Standard_LRS disk type does not enable encryption by default. For a production deployment we would switch to a managed disk with encryption at rest. |
+| SSH (port 22) open to all sources by default | HIGH | Added the configurable allowed_ssh_cidr variable so SSH access can be restricted to a trusted IP range. The current default remains 0.0.0.0/0 and should be changed for deployment. |
+| App port (5000) open to all sources | MEDIUM | Documented. A production deployment should restrict access or place the application behind a load balancer or gateway. |
 
-These are valid findings for a production environment. For this stage of the project we documented them and noted what the fixes would look like when we move towards a production setup.
+### pip-audit
 
-## Notes
+The local dependency audit completed successfully with no known vulnerabilities found in the dependencies listed in requirements-dev.txt.
 
-Security scanning is an ongoing process. As we add more infrastructure and dependencies, new findings may come up and this document will be updated accordingly.
+## Ongoing security
+
+Security findings should be reviewed and remediated as the application and infrastructure evolve. Never commit private keys, credentials, or application secrets.
