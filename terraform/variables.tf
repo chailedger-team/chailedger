@@ -7,7 +7,6 @@ variable "resource_group_name" {
 variable "location" {
   description = "Azure region to deploy resources"
   type        = string
-  default     = "southafricanorth"
 }
 
 variable "vm_size" {
@@ -31,4 +30,10 @@ variable "environment" {
 variable "ssh_public_key" {
   description = "SSH public key for VM access"
   type        = string
+}
+
+variable "allowed_ssh_cidr" {
+  description = "CIDR block allowed to SSH into the VM"
+  type        = string
+  default     = "0.0.0.0/0"
 }

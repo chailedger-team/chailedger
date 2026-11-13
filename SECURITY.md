@@ -26,8 +26,10 @@ tfsec flagged the following:
 
 | Finding | Severity | How we handled it |
 |---|---|---|
-| SSH (port 22) open to all sources | HIGH | Acknowledged. In production this would be locked down to specific IPs but for development and testing we are keeping it open. |
-| App port (5000) open to all sources | MEDIUM | Same reasoning. A production setup would sit behind a load balancer or gateway instead of exposing the app port directly. |
+| Finding | Severity | How we handled it |
+|---|---|---|
+| SSH (port 22) open to all sources | HIGH | Fixed. SSH access is now restricted through a configurable CIDR variable (`allowed_ssh_cidr`). In production this would be set to a specific IP range. The default is left open for development convenience but can be locked down in tfvars. |
+| App port (5000) open to all sources | MEDIUM | Acknowledged. A production setup would sit behind a load balancer or gateway instead of exposing the app port directly. |
 | No disk encryption specified on VM | HIGH | The Standard_LRS disk type does not enable encryption by default. For a production deployment we would switch to a managed disk with encryption at rest. |
 
 These are valid findings for a production environment. For this stage of the project we documented them and noted what the fixes would look like when we move towards a production setup.
