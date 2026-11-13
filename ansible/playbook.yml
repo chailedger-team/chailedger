@@ -1,0 +1,172 @@
+---
+- name: Configure and deploy ChaiLedger
+  hosts: chailedger
+  become: true
+
+  vars:
+    app_directory: /opt/chailedger
+
+  tasks:
+    - name: Verify the target is Ubuntu
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+        fail_msg: "This playbook is designed for Ubuntu servers."
+
+    - name: Install required system packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - ufw
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Create Docker keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Download Docker repository signing key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add official Docker repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ 'amd64' if ansible_architecture == 'x86_64'
+          else 'arm64' }} signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/ubuntu
+          {{ ansible_distribution_release }} stable
+        state: present
+        filename: docker
+
+    - name: Install Docker Engine and Compose
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Enable and start Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Allow SSH through UFW
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Allow ChaiLedger application port
+      community.general.ufw:
+        rule: allow
+        port: "5000"
+        proto: tcp
+
+    - name: Enable UFW firewall
+      community.general.ufw:
+        state: enabled
+        policy: deny
+
+    - name: Configure SSH security settings
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/00-chailedger-hardening.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          PermitRootLogin no
+          PasswordAuthentication no
+          PubkeyAuthentication yes
+          MaxAuthTries 3
+          X11Forwarding no
+      notify: Restart SSH
+
+    - name: Validate SSH configuration
+      ansible.builtin.command: sshd -t
+      changed_when: false
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ app_directory }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy Dockerfile
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../Dockerfile"
+        dest: "{{ app_directory }}/Dockerfile"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy Docker Compose configuration
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../docker-compose.yml"
+        dest: "{{ app_directory }}/docker-compose.yml"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy Python requirements
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../requirements.txt"
+        dest: "{{ app_directory }}/requirements.txt"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy application entry point
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../run.py"
+        dest: "{{ app_directory }}/run.py"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy application source code
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../app/"
+        dest: "{{ app_directory }}/app/"
+        owner: root
+        group: root
+        mode: "u=rwX,g=rX,o=rX"
+
+    - name: Build and start ChaiLedger
+      ansible.builtin.command:
+        cmd: docker compose up -d --build
+        chdir: "{{ app_directory }}"
+      register: deployment
+      changed_when: true
+
+    - name: Wait for ChaiLedger to respond
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5000/health
+        method: GET
+        status_code: 200
+      register: health_check
+      retries: 12
+      delay: 10
+      until: health_check.status == 200
+
+    - name: Display deployment status
+      ansible.builtin.debug:
+        msg: "ChaiLedger is running and its health check passed."
+
+  handlers:
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
