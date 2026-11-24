@@ -6,6 +6,9 @@ own package with a service layer (logic + data access) and a routes layer
 into its own microservice.
 """
 
+import logging
+import time
+
 from flask import Flask, jsonify
 
 from app import db
@@ -41,13 +44,43 @@ def create_app(config_overrides=None):
         )
         return jsonify(
             service="ChaiLedger",
-            description="Transparent weighing and payment records for smallholder tea farmers",
+            description=(
+                "Transparent weighing and payment records"
+                " for smallholder tea farmers"
+            ),
             endpoints=endpoints,
         )
 
     @app.get("/health")
     def health():
-        db.get_db().execute("SELECT 1")
         return jsonify(status="ok")
+
+    @app.get("/readiness")
+    def readiness():
+        start = time.time()
+        try:
+            db.get_db().execute("SELECT 1")
+            duration_ms = round((time.time() - start) * 1000, 2)
+            app.logger.info(
+                "readiness check passed in %s ms", duration_ms
+            )
+            return jsonify(
+                status="ready",
+                database="connected",
+                response_ms=duration_ms,
+            )
+        except Exception as exc:
+            duration_ms = round((time.time() - start) * 1000, 2)
+            app.logger.error(
+                "readiness check failed after %s ms: %s",
+                duration_ms,
+                exc,
+            )
+            return jsonify(
+                status="not ready",
+                database="unreachable",
+                error=str(exc),
+                response_ms=duration_ms,
+            ), 503
 
     return app
