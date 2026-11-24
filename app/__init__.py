@@ -14,6 +14,7 @@ from flask import Flask, jsonify
 from app import db
 from app.config import Config
 from app.errors import register_error_handlers
+from app.logging_config import setup_logging
 
 
 def create_app(config_overrides=None):
@@ -24,6 +25,7 @@ def create_app(config_overrides=None):
 
     db.init_app(app)
     register_error_handlers(app)
+    setup_logging(app)
 
     from app.farmers.routes import bp as farmers_bp
     from app.deliveries.routes import bp as deliveries_bp
