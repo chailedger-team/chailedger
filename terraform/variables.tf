@@ -37,3 +37,27 @@ variable "allowed_ssh_cidr" {
   type        = string
   default     = "0.0.0.0/0"
 }
+
+variable "db_server_name" {
+  description = "Name of the PostgreSQL flexible server"
+  type        = string
+  default     = "chailedger-db"
+}
+
+variable "db_admin_username" {
+  description = "Admin username for the PostgreSQL server"
+  type        = string
+  default     = "chailedgeradmin"
+}
+
+variable "db_admin_password" {
+  description = "Admin password for the PostgreSQL server"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_sku_name" {
+  description = "SKU for the PostgreSQL flexible server"
+  type        = string
+  default     = "B_Standard_B1ms"
+}
