@@ -37,3 +37,24 @@ output "db_name" {
   description = "Name of the application database"
   value       = azurerm_postgresql_flexible_server_database.chailedger.name
 }
+
+output "bastion_host_name" {
+  description = "Name of the Bastion host"
+  value       = azurerm_bastion_host.chailedger.name
+}
+
+output "acr_login_server" {
+  description = "Login server URL of the container registry"
+  value       = azurerm_container_registry.chailedger.login_server
+}
+
+output "acr_admin_username" {
+  description = "Admin username for the container registry"
+  value       = azurerm_container_registry.chailedger.admin_username
+}
+
+output "acr_admin_password" {
+  description = "Admin password for the container registry"
+  value       = azurerm_container_registry.chailedger.admin_password
+  sensitive   = true
+}

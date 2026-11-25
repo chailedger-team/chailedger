@@ -61,3 +61,9 @@ variable "db_sku_name" {
   type        = string
   default     = "B_Standard_B1ms"
 }
+
+variable "acr_name" {
+  description = "Name of the Azure Container Registry (must be globally unique, alphanumeric only)"
+  type        = string
+  default     = "chailedgeracr"
+}
