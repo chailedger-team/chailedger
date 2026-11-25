@@ -1,4 +1,4 @@
-
+﻿
 # Python
 __pycache__/
 *.py[cod]
@@ -63,4 +63,4 @@ htmlcov/
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
-.terraform.lock.hcl
+terraform.exe
