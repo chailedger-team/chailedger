@@ -39,20 +39,18 @@ resource "azurerm_network_security_group" "chailedger" {
     protocol                   = "Tcp"
     source_port_range          = "*"
     destination_port_range     = "22"
-    source_address_prefix      = "VirtualNetwork"
+    source_address_prefix      = var.allowed_ssh_cidr
     destination_address_prefix = "*"
   }
 
   security_rule {
-    name                   = "allow-http"
-    priority               = 200
-    direction              = "Inbound"
-    access                 = "Allow"
-    protocol               = "Tcp"
-    source_port_range      = "*"
-    destination_port_range = "5000"
-    # Public HTTP access is intentional: the assignment requires a publicly reachable application.
-    #tfsec:ignore:azure-network-no-public-ingress
+    name                       = "allow-http"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "5000"
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
@@ -129,70 +127,4 @@ resource "azurerm_linux_virtual_machine" "chailedger" {
     environment = var.environment
     project     = "chailedger"
   }
-}
-
-resource "azurerm_subnet" "database" {
-  name                 = "chailedger-db-subnet"
-  resource_group_name  = azurerm_resource_group.chailedger.name
-  virtual_network_name = azurerm_virtual_network.chailedger.name
-  address_prefixes     = ["10.0.2.0/24"]
-
-  delegation {
-    name = "postgresql-delegation"
-
-    service_delegation {
-      name = "Microsoft.DBforPostgreSQL/flexibleServers"
-      actions = [
-        "Microsoft.Network/virtualNetworks/subnets/join/action"
-      ]
-    }
-  }
-}
-
-resource "azurerm_private_dns_zone" "database" {
-  name                = "chailedger.postgres.database.azure.com"
-  resource_group_name = azurerm_resource_group.chailedger.name
-
-  tags = {
-    environment = var.environment
-  }
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "database" {
-  name                  = "chailedger-db-dns-link"
-  private_dns_zone_name = azurerm_private_dns_zone.database.name
-  resource_group_name   = azurerm_resource_group.chailedger.name
-  virtual_network_id    = azurerm_virtual_network.chailedger.id
-}
-
-resource "azurerm_postgresql_flexible_server" "chailedger" {
-  name                   = var.db_server_name
-  resource_group_name    = azurerm_resource_group.chailedger.name
-  location               = azurerm_resource_group.chailedger.location
-  version                = "15"
-  administrator_login    = var.db_admin_username
-  administrator_password = var.db_admin_password
-  sku_name               = var.db_sku_name
-  storage_mb             = 32768
-  zone                   = "1"
-
-  public_network_access_enabled = false
-  delegated_subnet_id           = azurerm_subnet.database.id
-  private_dns_zone_id           = azurerm_private_dns_zone.database.id
-
-  depends_on = [
-    azurerm_private_dns_zone_virtual_network_link.database
-  ]
-
-  tags = {
-    environment = var.environment
-    project     = "chailedger"
-  }
-}
-
-resource "azurerm_postgresql_flexible_server_database" "chailedger" {
-  name      = "chailedger"
-  server_id = azurerm_postgresql_flexible_server.chailedger.id
-  charset   = "UTF8"
-  collation = "en_US.utf8"
 }

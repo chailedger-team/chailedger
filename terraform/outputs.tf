@@ -27,13 +27,3 @@ output "subnet_id" {
   description = "ID of the subnet"
   value       = azurerm_subnet.chailedger.id
 }
-
-output "db_server_fqdn" {
-  description = "Fully qualified domain name of the PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.chailedger.fqdn
-}
-
-output "db_name" {
-  description = "Name of the application database"
-  value       = azurerm_postgresql_flexible_server_database.chailedger.name
-}
