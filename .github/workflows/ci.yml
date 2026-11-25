@@ -138,6 +138,7 @@ jobs:
           image-ref: "chailedger:scan"
           format: "table"
           severity: "CRITICAL,HIGH"
+          exit-code: "1"
 
   tfsec-scan:
     name: tfsec IaC scan

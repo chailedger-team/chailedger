@@ -3,6 +3,8 @@
 
 A transparent weighing and payment record for smallholder tea farmers in Kenya.
 
+> **Live Application:** http://4.221.88.135:5000
+
 ## African Context
 
 In Kenya, smallholder tea farmers pick green leaf and carry it to a buying centre. A clerk weighs each sack, writes down the number, and at the end of the month the factory pays the farmer per kilogram. Everything the farmer earns depends on that one reading on the scale. Most farmers have no record of their own to check it against.
@@ -42,15 +44,84 @@ We split the code into four modules: farmers, deliveries, payments and notificat
 * **Feature 4: Monthly statement and payout estimate.** Shows the confirmed, pending and disputed kilograms for a month, and works out the estimated pay from confirmed kilograms only.
 * **Feature 5: SMS receipts and dispute report.** Every weighing and every dispute sends a simulated SMS. The dispute report ranks clerks and centres by how many disputes they have and how many kilograms are in question.
 
+## Architecture
+
+The diagram below shows how the different pieces of ChaiLedger connect, from a developer pushing code all the way to a farmer checking their weighing record.
+
+```
+                        +------------------+
+                        |    Developer     |
+                        |  pushes to main  |
+                        +--------+---------+
+                                 |
+                                 v
+                     +-----------+-----------+
+                     |    GitHub Actions     |
+                     |  CI: lint, test,      |
+                     |  security scans       |
+                     |  CD: build, push,     |
+                     |  deploy               |
+                     +-----------+-----------+
+                                 |
+                    +------------+------------+
+                    |                         |
+                    v                         v
+          +-----------------+     +-----------------------+
+          | Azure Container |     |   Azure Virtual       |
+          | Registry (ACR)  |     |   Network (VNet)      |
+          | stores Docker   |     |   10.0.0.0/16         |
+          | images          |     +-----------+-----------+
+          +-----------------+                 |
+                                 +------------+------------+
+                                 |            |            |
+                                 v            v            v
+                          +-----------+ +-----------+ +-----------+
+                          | Public    | | Private   | | Database  |
+                          | Subnet   | | Subnet    | | Subnet    |
+                          | 10.0.0.0 | | 10.0.1.0  | | 10.0.2.0  |
+                          | /24      | | /24       | | /24       |
+                          +-----+-----+ +-----+-----+ +-----+-----+
+                                |            |            |
+                                v            v            v
+                          +-----------+ +-----------+ +-----------+
+                          | Bastion   | | App VM    | | PostgreSQL|
+                          | Host      | | (Docker)  | | Flexible  |
+                          | (SSH      | | runs the  | | Server    |
+                          |  access)  | | ChaiLedger| | (managed  |
+                          |           | | container | |  database)|
+                          +-----------+ +-----+-----+ +-----------+
+                                              |
+                                              v
+                                     +--------+--------+
+                                     |   /health       |
+                                     |   /readiness    |
+                                     |   /farmers      |
+                                     |   /deliveries   |
+                                     |   /payments     |
+                                     |   /notifications|
+                                     +-----------------+
+```
+
+**How it flows:**
+
+1. A developer pushes code to `main`. GitHub Actions runs the CI pipeline first: linting, tests, Trivy container scan, tfsec infrastructure scan, and pip-audit dependency scan. If anything fails, the merge is blocked.
+2. Once CI passes, the CD pipeline builds a Docker image and pushes it to the Azure Container Registry.
+3. The CD pipeline then runs an Ansible playbook that connects to the app VM through the bastion host, pulls the new image from the registry, and restarts the service with `docker compose up -d`.
+4. The app VM runs the ChaiLedger container. It sits in a private subnet, so the only way to SSH into it is through the bastion host in the public subnet. The PostgreSQL database sits in its own subnet with a private DNS zone, so it is reachable from the app VM but not from the public internet.
+5. A farmer or clerk hits the API endpoints. The `/readiness` endpoint confirms the app can reach the database. The `/health` endpoint confirms the process is alive.
+
 ## Technology Stack
 
 * **Backend:** Python 3.10 or newer, with Flask for the REST API
 * **Frontend:** None yet. The API returns JSON, which you can try with a browser, curl or Postman
-* **Database:** SQLite, which saves to a local file and needs no setup
+* **Database:** SQLite for local development. Azure Database for PostgreSQL (Flexible Server) is provisioned for production
 * **Testing:** pytest
 * **Linting:** flake8
 * **Containers:** Docker and Docker Compose. Inside the container, gunicorn serves the app instead of Flask's development server
-* **CI:** GitHub Actions, which lints, tests and builds the Docker image on every push and pull request
+* **CI/CD:** GitHub Actions. CI runs linting, tests, and security scans on pull requests. CD builds, pushes, and deploys on merge to main
+* **Infrastructure as Code:** Terraform provisions the Azure resources (VNet, VM, bastion host, PostgreSQL, container registry)
+* **Configuration Management:** Ansible configures the VM and deploys the application
+* **Security Scanning:** Trivy (container images), tfsec (Terraform), pip-audit (Python dependencies)
 * **Other:** python-dotenv, for reading settings from a `.env` file
 
 ## Getting Started
@@ -92,7 +163,7 @@ You do not need a `.env` file. Compose already has defaults that work, and if yo
 
 #### How it works
 
-**Dockerfile.** The image is built in two stages. The first stage installs the Python packages. The second stage starts again from a fresh `python:3.12-slim` image and only copies in those packages and our code, so nothing extra comes along. The app runs as its own user called `chailedger`, not as root, so even if something went wrong inside the app, it could not take over the container. Docker also calls `/health` every 30 seconds and marks the container as unhealthy if the app stops answering.
+**Dockerfile.** The image is built in two stages. The first stage installs the Python packages. The second stage starts again from a fresh `python:3.12-slim` image and only copies in those packages and our code, so nothing extra comes along. The app runs as its own user called `chailedger`, not as root, so even if something went wrong inside the app, it could not take over the container. Docker calls the `/readiness` endpoint every 30 seconds and marks the container as unhealthy if the app cannot reach the database.
 
 **docker-compose.yml.** This runs the app on its own private network and restarts it if it crashes. ChaiLedger uses SQLite, which keeps everything in one file, so there is no separate database container. Instead, that file lives in a volume called `chailedger-data`. A volume is storage that Docker keeps outside the container, so the farmers and weighings you record are still there after you stop, restart or rebuild the app. The `seed` service only runs when you ask for it, and it waits until the app is healthy before adding the sample data.
 
@@ -251,7 +322,8 @@ curl "http://127.0.0.1:5000/notifications/outbox?phone=0712345678"
 
 | Method | Endpoint | What it does |
 |---|---|---|
-| GET | `/health` | Checks that the app is running |
+| GET | `/health` | Checks that the app process is running |
+| GET | `/readiness` | Checks that the app can reach the database, with response time in milliseconds |
 | POST, GET | `/centres` | Adds or lists buying centres |
 | POST, GET | `/farmers` | Registers or lists farmers (filter with `?centre_id=`) |
 | GET | `/farmers/<id>` | Shows one farmer |
@@ -276,43 +348,138 @@ All settings are read from environment variables. You can see them in `.env.exam
 | `PORT` | `5000` | The port the app runs on |
 | `FLASK_DEBUG` | `0` | Set to `1` to reload the app automatically while coding |
 
+## Cloud Infrastructure
+
+ChaiLedger is deployed on Microsoft Azure. The infrastructure is defined in Terraform so it can be created, changed and torn down with a single command instead of clicking through a web console.
+
+All resources live in the `southafricanorth` region and the application VM is reachable at `4.221.88.135`. We picked South Africa North because our users are tea farmers in Kenya. Having the server on the same continent means lower latency than routing requests through Europe or the United States.
+
+### What Terraform provisions
+
+| Resource | Purpose |
+|---|---|
+| Resource Group | Groups everything together so it can be managed and deleted as one unit |
+| Virtual Network (10.0.0.0/16) | A private network that keeps our resources isolated from the public internet |
+| Public Subnet (10.0.0.0/24) | Holds the bastion host, the only machine with a public IP |
+| Private Subnet (10.0.1.0/24) | Holds the application VM, reachable only through the bastion |
+| Database Subnet (10.0.2.0/24) | Holds the PostgreSQL server, reachable only from inside the VNet |
+| Bastion Host | A small VM that acts as a doorway. You SSH into the bastion, and from there into the app VM. This way the app VM never needs to be exposed to the internet directly |
+| Application VM (4.221.88.135) | Runs the ChaiLedger Docker container. Ansible configures it after Terraform creates it |
+| PostgreSQL Flexible Server | A managed database that Azure backs up, patches and monitors. The app currently uses SQLite, but the database is provisioned and ready for migration |
+| Network Security Groups | Firewall rules: SSH is allowed only from a specified IP, and port 5000 is open for web traffic |
+
+### Deploying the infrastructure
+
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your actual values
+terraform init
+terraform plan
+terraform apply
+```
+
+The database password is not stored in any file. Pass it at apply time:
+
+```bash
+terraform apply -var="db_admin_password=your-strong-password"
+```
+
+## Observability
+
+Observability is about being able to tell what the app is doing without logging into the server and poking around. When something goes wrong at 3 AM, you want to open a dashboard or search through logs and find the answer. ChaiLedger has three observability signals.
+
+### Health and readiness endpoints
+
+`/health` returns `{"status": "ok"}` if the process is alive. This is the cheap check. Docker calls it every 30 seconds.
+
+`/readiness` goes deeper. It queries the database, measures how long the query took, and returns the result:
+
+```json
+{
+  "status": "ready",
+  "database": "connected",
+  "response_ms": 1.23
+}
+```
+
+If the database is unreachable, it returns a 503 status code with `"status": "not ready"`. A load balancer or monitoring tool that checks this endpoint would stop sending traffic to this instance until the database comes back.
+
+### Structured JSON logging
+
+Every log line the app produces is a JSON object:
+
+```json
+{
+  "timestamp": "2026-11-24T18:40:00.000000+00:00",
+  "level": "INFO",
+  "logger": "app",
+  "message": "readiness check passed in 1.23 ms"
+}
+```
+
+JSON logs can be searched and filtered by any field. If you want to see only errors, filter by `"level": "ERROR"`. If you want to see everything that happened in the last five minutes, filter by timestamp. Plain text logs do not give you that structure, which is why most production systems use JSON.
+
+### Security scanning
+
+The CI pipeline scans for vulnerabilities on every pull request:
+
+- **Trivy** scans the Docker image for known vulnerabilities in OS packages and Python dependencies. The pipeline fails if any CRITICAL or HIGH findings are detected.
+- **tfsec** scans the Terraform configuration for security misconfigurations.
+- **pip-audit** checks Python dependencies against known vulnerability databases.
+
+See [SECURITY.md](SECURITY.md) for the full list of findings and what we did about each one.
+
 ## Project Structure
 
 ```
 chailedger/
 |-- .github/
 |   `-- workflows/
-|       `-- ci.yml             Runs linting, tests, Docker checks and image publishing
+|       `-- ci.yml               CI: lint, test, security scans, Docker build
 |-- app/
-|   |-- __init__.py          Creates the app and connects all the modules
-|   |-- config.py            Reads settings from environment variables
-|   |-- db.py                Database connection, plus the init-db and seed commands
-|   |-- schema.sql           Database tables
-|   |-- errors.py            Error types and JSON error messages
-|   |-- validation.py        Checks for phone numbers, weights and dates
-|   |-- farmers/             Farmers and buying centres
+|   |-- __init__.py            Creates the app, registers blueprints, /health and /readiness
+|   |-- config.py              Reads settings from environment variables
+|   |-- db.py                  Database connection, plus the init-db and seed commands
+|   |-- logging_config.py      Structured JSON logging setup
+|   |-- schema.sql             Database tables
+|   |-- errors.py              Error types and JSON error messages
+|   |-- validation.py          Checks for phone numbers, weights and dates
+|   |-- farmers/               Farmers and buying centres
 |   |   |-- routes.py
 |   |   `-- service.py
-|   |-- deliveries/          Weighings, confirm, dispute and the dispute report
+|   |-- deliveries/            Weighings, confirm, dispute and the dispute report
 |   |   |-- routes.py
 |   |   `-- service.py
-|   |-- payments/            Monthly statements and payout estimates
+|   |-- payments/              Monthly statements and payout estimates
 |   |   |-- routes.py
 |   |   `-- service.py
-|   `-- notifications/       The simulated SMS outbox
+|   `-- notifications/         The simulated SMS outbox
 |       |-- routes.py
 |       `-- service.py
-|-- tests/                   Unit and API tests
-|-- docs/                    Notes on our team process
-|-- .dockerignore            Files kept out of the Docker image
-|-- .env.example             Example settings, with no secrets
-|-- .flake8                  Linting rules
-|-- docker-compose.yml       Starts the app and its data volume with one command
-|-- Dockerfile               Builds the ChaiLedger image
+|-- ansible/
+|   |-- inventory/
+|   |   `-- hosts.ini          Target hosts for Ansible
+|   `-- playbook.yml           Configures the VM and deploys ChaiLedger
+|-- terraform/
+|   |-- main.tf                Azure resources: VNet, VM, bastion, PostgreSQL, NSGs
+|   |-- variables.tf           Input variables for all resources
+|   |-- outputs.tf             Values exported after provisioning (IPs, hostnames)
+|   |-- providers.tf           Azure provider configuration
+|   `-- terraform.tfvars.example  Example variable values (copy to terraform.tfvars)
+|-- tests/                     Unit and API tests
+|-- docs/                      Notes on our team process
+|-- .dockerignore              Files kept out of the Docker image
+|-- .env.example               Example settings, with no secrets
+|-- .flake8                    Linting rules
+|-- docker-compose.yml         Starts the app and its data volume with one command
+|-- Dockerfile                 Builds the ChaiLedger image
 |-- pytest.ini
-|-- requirements.txt         Packages the app needs to run
-|-- requirements-dev.txt     Extra packages for testing and linting
-|-- run.py                   Starts the app
+|-- requirements.txt           Packages the app needs to run
+|-- requirements-dev.txt       Extra packages for testing and linting
+|-- run.py                     Starts the app
+|-- SECURITY.md                Security scan findings and remediation
+|-- CHANGELOG.md               Project history from F1 through F2 to Summative
 `-- README.md
 ```
 

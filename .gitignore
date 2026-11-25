@@ -63,3 +63,4 @@ htmlcov/
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
+terraform.exe

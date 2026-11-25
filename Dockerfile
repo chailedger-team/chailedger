@@ -53,9 +53,9 @@ USER chailedger
 
 EXPOSE 5000
 
-# Mark the container unhealthy if /health stops responding
+# Mark the container unhealthy if /readiness stops responding
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '5000') + '/health', timeout=4)" || exit 1
+    CMD python -c "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('PORT', '5000') + '/readiness', timeout=4)" || exit 1
 
 # Serve the app with gunicorn and create the database tables once before the workers start
 CMD ["sh", "-c", "exec gunicorn --bind ${HOST}:${PORT} --workers 2 --preload --access-logfile - run:app"]
