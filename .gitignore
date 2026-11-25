@@ -64,3 +64,4 @@ htmlcov/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+terraform.exe 

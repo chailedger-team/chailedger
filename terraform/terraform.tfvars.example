@@ -1,6 +1,6 @@
 resource_group_name = "chailedger-rg"
 location            = "southafricanorth"
-vm_size             = "Standard_B1s"
+vm_size             = "Standard_DS1_v2"
 admin_username      = "chailedgeradmin"
 environment         = "dev"
 ssh_public_key      = "ssh-rsa AAAA...your-public-key-here"

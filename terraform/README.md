@@ -48,7 +48,7 @@ All environment-specific values are defined as variables in `variables.tf`. You 
 |---|---|---|
 | resource_group_name | Name of the Azure resource group | chailedger-rg |
 | location | Azure region | southafricanorth |
-| vm_size | VM instance size | Standard_B1s |
+| vm_size | VM instance size | Standard_DS1_v2 |
 | admin_username | SSH admin user | chailedgeradmin |
 | environment | Deployment environment tag | dev |
 
