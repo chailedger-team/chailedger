@@ -133,11 +133,13 @@ jobs:
           tags: chailedger:scan
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.33.1
         with:
           image-ref: "chailedger:scan"
           format: "table"
           severity: "CRITICAL"
+          vuln-type: "os,library"
+          scanners: "vuln"
           exit-code: "1"
 
   tfsec-scan:
