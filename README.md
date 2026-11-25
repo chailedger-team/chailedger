@@ -3,7 +3,7 @@
 
 A transparent weighing and payment record for smallholder tea farmers in Kenya.
 
-> **Live Application:** _URL will be added once the CD pipeline completes the first production deployment._
+> **Live Application:** http://4.221.88.135:5000
 
 ## African Context
 
@@ -352,7 +352,7 @@ All settings are read from environment variables. You can see them in `.env.exam
 
 ChaiLedger is deployed on Microsoft Azure. The infrastructure is defined in Terraform so it can be created, changed and torn down with a single command instead of clicking through a web console.
 
-All resources live in the `southafricanorth` region. We picked South Africa North because our users are tea farmers in Kenya. Having the server on the same continent means lower latency than routing requests through Europe or the United States.
+All resources live in the `southafricanorth` region and the application VM is reachable at `4.221.88.135`. We picked South Africa North because our users are tea farmers in Kenya. Having the server on the same continent means lower latency than routing requests through Europe or the United States.
 
 ### What Terraform provisions
 
@@ -364,7 +364,7 @@ All resources live in the `southafricanorth` region. We picked South Africa Nort
 | Private Subnet (10.0.1.0/24) | Holds the application VM, reachable only through the bastion |
 | Database Subnet (10.0.2.0/24) | Holds the PostgreSQL server, reachable only from inside the VNet |
 | Bastion Host | A small VM that acts as a doorway. You SSH into the bastion, and from there into the app VM. This way the app VM never needs to be exposed to the internet directly |
-| Application VM | Runs the ChaiLedger Docker container. Ansible configures it after Terraform creates it |
+| Application VM (4.221.88.135) | Runs the ChaiLedger Docker container. Ansible configures it after Terraform creates it |
 | PostgreSQL Flexible Server | A managed database that Azure backs up, patches and monitors. The app currently uses SQLite, but the database is provisioned and ready for migration |
 | Network Security Groups | Firewall rules: SSH is allowed only from a specified IP, and port 5000 is open for web traffic |
 
