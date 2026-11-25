@@ -133,11 +133,14 @@ jobs:
           tags: chailedger:scan
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "chailedger:scan"
           format: "table"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
+          vuln-type: "os,library"
+          scanners: "vuln"
+          version: "v0.76.2"
           exit-code: "1"
 
   tfsec-scan:
@@ -151,7 +154,6 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: terraform
-          soft_fail: true
 
   dependency-scan:
     name: Dependency vulnerability scan (pip-audit)

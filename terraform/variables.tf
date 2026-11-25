@@ -12,7 +12,7 @@ variable "location" {
 variable "vm_size" {
   description = "Size of the virtual machine"
   type        = string
-  default     = "Standard_DS1_v2"
+  default     = "Standard_B1s"
 }
 
 variable "admin_username" {

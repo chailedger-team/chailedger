@@ -1,0 +1,82 @@
+---
+- name: Deploy ChaiLedger from Azure Container Registry
+  hosts: chailedger
+  become: true
+
+  vars:
+    app_directory: /opt/chailedger
+    acr_login_server: "{{ lookup('env', 'ACR_LOGIN_SERVER') }}"
+    acr_username: "{{ lookup('env', 'ACR_USERNAME') }}"
+    acr_password: "{{ lookup('env', 'ACR_PASSWORD') }}"
+    image_tag: "{{ lookup('env', 'IMAGE_TAG') }}"
+
+  tasks:
+    - name: Validate deployment variables
+      ansible.builtin.assert:
+        that:
+          - acr_login_server | length > 0
+          - acr_username | length > 0
+          - acr_password | length > 0
+          - image_tag | length > 0
+
+    - name: Check Docker installation
+      ansible.builtin.command: docker --version
+      changed_when: false
+
+    - name: Check Docker Compose installation
+      ansible.builtin.command: docker compose version
+      changed_when: false
+
+    - name: Create application directory
+      ansible.builtin.file:
+        path: "{{ app_directory }}"
+        state: directory
+        mode: "0755"
+
+    - name: Authenticate with Azure Container Registry
+      ansible.builtin.command:
+        argv:
+          - docker
+          - login
+          - "{{ acr_login_server }}"
+          - --username
+          - "{{ acr_username }}"
+          - --password-stdin
+        stdin: "{{ acr_password }}"
+      no_log: true
+      changed_when: true
+
+    - name: Copy production Compose configuration
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/docker-compose.prod.yml"
+        dest: "{{ app_directory }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Pull application image
+      ansible.builtin.command: docker compose pull
+      args:
+        chdir: "{{ app_directory }}"
+      environment:
+        ACR_LOGIN_SERVER: "{{ acr_login_server }}"
+        IMAGE_TAG: "{{ image_tag }}"
+
+    - name: Deploy application
+      ansible.builtin.command: docker compose up -d --remove-orphans
+      args:
+        chdir: "{{ app_directory }}"
+      environment:
+        ACR_LOGIN_SERVER: "{{ acr_login_server }}"
+        IMAGE_TAG: "{{ image_tag }}"
+
+    - name: Wait for application readiness
+      ansible.builtin.uri:
+        url: http://127.0.0.1:5000/readiness
+        status_code: 200
+      register: readiness
+      retries: 18
+      delay: 10
+      until: readiness.status == 200
+
+    - name: Report deployment
+      ansible.builtin.debug:
+        msg: "ChaiLedger image {{ image_tag }} deployed successfully."
