@@ -18,6 +18,9 @@ RUN pip install -r requirements.txt
 
 # Stage 2: a clean image with only what the app needs to run
 FROM python:3.12-slim AS runtime
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
 
 LABEL org.opencontainers.image.title="ChaiLedger" \
       org.opencontainers.image.description="Transparent weighing and payment records for smallholder tea farmers" \
