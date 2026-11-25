@@ -6,7 +6,6 @@ own package with a service layer (logic + data access) and a routes layer
 into its own microservice.
 """
 
-import logging
 import time
 
 from flask import Flask, jsonify
