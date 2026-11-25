@@ -143,18 +143,23 @@ jobs:
           version: "v0.76.2"
           exit-code: "1"
 
-  tfsec-scan:
-    name: tfsec IaC scan
+  iac-scan:
+    name: Trivy IaC misconfiguration scan
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
+      - name: Run Trivy Terraform scan
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
-          working_directory: terraform
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          scan-type: fs
+          scan-ref: terraform
+          scanners: misconfig
+          severity: HIGH,CRITICAL
+          format: table
+          exit-code: "1"
+          version: "v0.76.2"
 
   dependency-scan:
     name: Dependency vulnerability scan (pip-audit)
@@ -177,7 +182,7 @@ jobs:
   publish:
     name: Publish image to GitHub Container Registry
     if: github.event_name == 'push' && github.ref != 'refs/heads/main'
-    needs: [lint, test, docker-build, trivy-scan, tfsec-scan, dependency-scan]
+    needs: [lint, test, docker-build, trivy-scan, iac-scan, dependency-scan]
     runs-on: ubuntu-latest
     permissions:
       contents: read
