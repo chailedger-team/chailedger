@@ -108,7 +108,7 @@ resource "azurerm_linux_virtual_machine" "chailedger" {
 
   admin_ssh_key {
     username   = var.admin_username
-    public_key = file("~/.ssh/chailedger_key.pub")
+    public_key = var.ssh_public_key
   }
 
   os_disk {
@@ -175,8 +175,8 @@ resource "azurerm_postgresql_flexible_server" "chailedger" {
   zone                   = "1"
 
   public_network_access_enabled = false
-  delegated_subnet_id = azurerm_subnet.database.id
-  private_dns_zone_id = azurerm_private_dns_zone.database.id
+  delegated_subnet_id           = azurerm_subnet.database.id
+  private_dns_zone_id           = azurerm_private_dns_zone.database.id
 
   depends_on = [
     azurerm_private_dns_zone_virtual_network_link.database

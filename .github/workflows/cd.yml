@@ -1,0 +1,89 @@
+name: ChaiLedger Continuous Deployment
+
+on:
+  workflow_run:
+    workflows: ["ChaiLedger CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    name: Build and push image to ACR
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "${{ secrets.ACR_NAME }}"
+
+      - name: Build and push image
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          docker build -t "$ACR_LOGIN_SERVER/chailedger:$IMAGE_TAG" .
+          docker push "$ACR_LOGIN_SERVER/chailedger:$IMAGE_TAG"
+
+  deploy:
+    name: Deploy to Azure VM
+    needs: build-and-push
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Ansible
+        run: pip install ansible
+
+      - name: Configure SSH
+        env:
+          VM_SSH_PRIVATE_KEY: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VM_SSH_PRIVATE_KEY" > ~/.ssh/chailedger_vm
+          chmod 600 ~/.ssh/chailedger_vm
+          ssh-keyscan -H "${{ secrets.VM_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Prepare Ansible inventory
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+        run: |
+          sed -i "s/YOUR_VM_PUBLIC_IP/$VM_HOST/" ansible/inventory/hosts.ini
+
+      - name: Deploy application
+        env:
+          ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          IMAGE_TAG: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          ansible-playbook \
+            -i ansible/inventory/hosts.ini \
+            ansible/deploy-image.yml \
+            --private-key ~/.ssh/chailedger_vm
