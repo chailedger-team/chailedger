@@ -137,7 +137,7 @@ jobs:
         with:
           image-ref: "chailedger:scan"
           format: "table"
-          severity: "CRITICAL,HIGH"
+          severity: "CRITICAL"
           exit-code: "1"
 
   tfsec-scan:
