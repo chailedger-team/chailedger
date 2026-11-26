@@ -33,9 +33,9 @@ variable "ssh_public_key" {
 }
 
 variable "allowed_ssh_cidr" {
-  description = "CIDR block allowed to SSH into the VM"
+  description = "Azure VirtualNetwork service tag allowed to SSH into the VM"
   type        = string
-  default     = "0.0.0.0/0"
+  default     = "VirtualNetwork"
 }
 
 variable "db_server_name" {

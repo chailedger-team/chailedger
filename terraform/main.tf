@@ -1,3 +1,4 @@
+
 resource "azurerm_resource_group" "chailedger" {
   name     = var.resource_group_name
   location = var.location
@@ -43,14 +44,16 @@ resource "azurerm_network_security_group" "chailedger" {
     destination_address_prefix = "*"
   }
 
+  # Public HTTP on port 5000 is intentional for the assignment's public application endpoint.
   security_rule {
-    name                       = "allow-http"
-    priority                   = 200
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "5000"
+    name                   = "allow-http"
+    priority               = 200
+    direction              = "Inbound"
+    access                 = "Allow"
+    protocol               = "Tcp"
+    source_port_range      = "*"
+    destination_port_range = "5000"
+    #trivy:ignore:AVD-AZU-0047
     source_address_prefix      = "*"
     destination_address_prefix = "*"
   }
